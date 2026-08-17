@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: HET State Page Scraper Action
+  version: 1.0.0
+  description: Scrapes Heavy Equipment Transport state child pages from Hero through final FAQ. URLs and slugs remain untranslated.
+servers:
+  - url: https://REPLACE-WITH-YOUR-DEPLOYED-DOMAIN
+paths:
+  /states:
+    get:
+      operationId: listStatePages
+      summary: Discover HET state child pages
+      responses:
+        '200':
+          description: State page manifest
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /scrape:
+    get:
+      operationId: scrapeStatePage
+      summary: Scrape one HET state page from Hero through FAQ
+      parameters:
+        - in: query
+          name: url
+          required: true
+          schema: {type: string, format: uri}
+      responses:
+        '200':
+          description: Bilingual-column-ready English extraction
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /scrape-all:
+    post:
+      operationId: scrapeAllStatePages
+      summary: Scrape all discovered HET state pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_url:
+                  type: string
+                  format: uri
+                  default: https://www.heavyequipmenttransport.com/heavy-equipment-transport-by-state.php
+                limit:
+                  type: integer
+                  minimum: 0
+                  maximum: 80
+                  default: 0
+      responses:
+        '200':
+          description: All state-page English extractions with adjacent blank Spanish fields
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true

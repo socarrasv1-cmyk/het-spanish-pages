@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup, Tag
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="HET State Page Scraper API", version="1.1.0")
+app = FastAPI(title="HET State Page Scraper API", version="1.2.0")
 
 PARENT_URL = "https://www.heavyequipmenttransport.com/heavy-equipment-transport-by-state.php"
 DOMAIN = "www.heavyequipmenttransport.com"
@@ -28,7 +28,7 @@ POST_BODY_RE = re.compile(
 )
 
 API_KEY = os.getenv("HET_SCRAPER_API_KEY", "")
-UA = "HET-State-Localization-Scraper-API/1.1"
+UA = "HET-State-Localization-Scraper-API/1.2"
 TIMEOUT = 30
 
 
@@ -266,7 +266,7 @@ def health():
     return {
         "ok": True,
         "service": "HET State Page Scraper API",
-        "version": "1.1.0",
+        "version": "1.2.0",
     }
 
 
@@ -304,6 +304,55 @@ def scrape(url: str, authorization: str | None = Header(default=None)):
         return {"ok": True, "page": extract(new_session(), url)}
     except Exception as e:
         raise HTTPException(422, str(e))
+
+
+
+@app.get("/scrape-batch", operation_id="scrapeStatePagesBatch")
+def scrape_batch(
+    offset: int = 0,
+    limit: int = 25,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Paginated GPT-friendly state-page extraction.
+    limit is configurable from 1 through 25.
+    """
+    auth(authorization)
+
+    if offset < 0:
+        raise HTTPException(400, "offset must be 0 or greater")
+    if limit < 1 or limit > 25:
+        raise HTTPException(400, "limit must be between 1 and 25")
+
+    s = new_session()
+    urls = discover(s, PARENT_URL)
+    selected = urls[offset : offset + limit]
+
+    pages = []
+    errors = []
+
+    for u in selected:
+        try:
+            pages.append(extract(s, u))
+        except Exception as e:
+            errors.append({"source_url": u, "error": str(e)})
+        time.sleep(0.35)
+
+    next_offset = offset + len(selected)
+    has_more = next_offset < len(urls)
+
+    return {
+        "ok": len(errors) == 0,
+        "discovered": len(urls),
+        "offset": offset,
+        "requested_limit": limit,
+        "selected": len(selected),
+        "completed": len(pages),
+        "errors": errors,
+        "next_offset": next_offset if has_more else None,
+        "has_more": has_more,
+        "pages": pages,
+    }
 
 
 @app.post("/scrape-all", operation_id="scrapeAllStatePages")
